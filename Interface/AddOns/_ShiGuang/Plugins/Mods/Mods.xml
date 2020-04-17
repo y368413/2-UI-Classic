@@ -1,0 +1,21 @@
+﻿<Ui xmlns="http://www.blizzard.com/wow/ui/">
+	<Script file="Mingy.lua"/>
+	<Script file="PvPPP.lua"/>
+	<Script file="Charms.lua"/>
+	<Script file="rlTools.lua"/>
+	<Script file="AHhelper.lua"/>
+	<Script file="Merchant.lua"/>
+	<Script file="kAutoOpen.lua"/>
+	<Script file="Reminder.lua"/>
+	<Script file="Wardrobe.lua"/>
+	<Script file="HardYards.lua"/>
+	<Script file="WallpaperKit.lua"/>
+	<Script file="QuestBindings.lua"/>
+	<Script file="NeedsFoodBadly.lua"/>
+	<Script file="MudmenItemColor.lua"/>
+	<Script file="TradeSkillSearch.lua"/>
+	<Script file="CharacterDurability.lua"/>
+	<Script file="CharacterStatsClass.lua"/>
+	<Script file="ItemTooltipProfession.lua"/>
+	<Script file="SX_ImprovingDressup.lua"/>
+</Ui>

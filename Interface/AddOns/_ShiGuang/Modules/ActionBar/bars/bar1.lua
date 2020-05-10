@@ -202,6 +202,8 @@ function Bar:OnLogin()
 	self:HideBlizz()
 	self:ReskinBars()
 	self:UpdateAllScale()
+	self:MicroMenu()
+
 	-- Credit: ShowActionCount, prozhong
 	hooksecurefunc("ActionButton_UpdateCount", self.FixActionCount)
 end

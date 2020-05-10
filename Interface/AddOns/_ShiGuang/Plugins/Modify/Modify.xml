@@ -3,6 +3,7 @@
 	<Script file="PvPPP.lua"/>
 	<Script file="Charms.lua"/>
 	<Script file="rlTools.lua"/>
+	<Script file="ChatLoot.lua"/>
 	<Script file="AHhelper.lua"/>
 	<Script file="Merchant.lua"/>
 	<Script file="kAutoOpen.lua"/>
@@ -12,6 +13,8 @@
 	<Script file="WallpaperKit.lua"/>
 	<Script file="QuestBindings.lua"/>
 	<Script file="NeedsFoodBadly.lua"/>
+	<!--Script file="ReagentCount.lua"/-->
+	<Script file="ShowActionCount.lua"/>
 	<Script file="MudmenItemColor.lua"/>
 	<Script file="TradeSkillSearch.lua"/>
 	<Script file="CharacterDurability.lua"/>

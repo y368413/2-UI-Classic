@@ -20,8 +20,8 @@ local UIQuestsandHelp = {
    "|cFFFF0000[注意]使用多功能团框的话，记得控制台别勾选“简易模式框体”|r",
    "[移除]SM蓝色改动，需要的自己添加",
    "[添加]小队和团队框体",
-   "[修复]几个后台冲突报错导致的卡顿",
-   "[Emmm]还有些我不记得了",
+   "[修复]战斗中无法打开技能列表",
+   "[修复]一些其它存在的问题",
    "[插件]版本号升级为v "..GetAddOnMetadata("_ShiGuang", "Version"),
    "--------------------------over",
 }
@@ -63,7 +63,7 @@ local function Helplist()
 	f:SetScale(1.1)
 	f:SetFrameStrata("HIGH")
 	M.CreateMF(f)
-	M.CreateBD(f)
+	M.SetBD(f)
 	M.CreateFS(f, 30, "2 UI", true, "TOPLEFT", 43, 16)
 	M.CreateFS(f, 16, I.Version, true, "TOPLEFT", 112, 6)
 	local offset = 0
@@ -86,7 +86,7 @@ local function lovewow()
 	f:SetScale(1.1)
 	f:SetFrameStrata("HIGH")
 	M.CreateMF(f)
-	M.CreateBD(f)
+	M.SetBD(f)
 	M.CreateFS(f, 30, "总会有毛人", true, "TOPLEFT", 21, 16)
 	M.CreateFS(f, 16, "We Love WOW", true, "TOPLEFT", 180, 9)
 	local offset = 0

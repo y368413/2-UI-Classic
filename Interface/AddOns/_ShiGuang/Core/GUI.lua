@@ -3,7 +3,7 @@ local M, R, U, I = unpack(ns)
 local G = M:RegisterModule("GUI")
 
 local tonumber, tostring, pairs, ipairs, next, select, type = tonumber, tostring, pairs, ipairs, next, select, type
-local tinsert, format, strsplit = table.insert, string.format, string.split
+local tinsert, strsplit, strfind = table.insert, string.split, string.find
 local cr, cg, cb = I.r, I.g, I.b
 local guiTab, guiPage, f, dataFrame = {}, {}
 
@@ -63,7 +63,8 @@ local defaultSettings = {
 		RaidFrame = true,
 		NumGroups = 8,
 		SimpleMode = true,
-		SimpleModeSortByRole = true,
+		SMUnitsPerColumn = 25,
+		SMGroupByIndex = 1,
 		InstanceAuras = true,
 		RaidDebuffScale = 1,
 		RaidHealthColor = 2,
@@ -102,10 +103,13 @@ local defaultSettings = {
 		SmoothAmount = .3,
 		ToToT = false,
 		RaidTextScale = 1,
+		FrequentHealth = false,
+		HealthFrequency = .25,
 
 		PlayerWidth = 245,
 		PlayerHeight = 24,
 		PlayerPowerHeight = 4,
+		PlayerPowerOffset = 2,
 		PetWidth = 120,
 		PetHeight = 18,
 		PetPowerHeight = 3,
@@ -178,8 +182,8 @@ local defaultSettings = {
 		PPPowerText = true,
 		FullHealth = false,
 		SecureColor = {r=1, g=0, b=1},
-		--TransColor = {r=1, g=.8, b=0},
-		--InsecureColor = {r=1, g=0, b=0},
+		TransColor = {r=1, g=.8, b=0},
+		InsecureColor = {r=1, g=0, b=0},
 		--OffTankColor = {r=.2, g=.7, b=.5},
 		--DPSRevertThreat = false,
 		PPIconSize = 36,
@@ -199,7 +203,6 @@ local defaultSettings = {
 		RM = true,
 		TMW = true,
 		WeakAuras = true,
-		BarLine = false,
 		InfobarLine = true,
 		ChatLine = false,
 		MenuLine = true,
@@ -216,6 +219,7 @@ local defaultSettings = {
 		FlatMode = true,
 		Loot = true,
 		Shadow = true,
+		FontScale = 1,
 	},
 	Tooltip = {
 		CombatHide = true,
@@ -267,7 +271,7 @@ local defaultSettings = {
 		AutoDismount = true,
 		TradeTabs = true,
 		InstantDelete = true,
-		CtrlIndicator = true,
+		RaidTool = true,
 		RMRune = false,
 		DBMCount = "10",
 		EasyMarking = true,
@@ -293,7 +297,7 @@ local accountSettings = {
 	DetectVersion = I.Version,
 	ResetDetails = true,
 	LockUIScale = false,
-	UIScale = .8,
+	UIScale = .71,
 	NumberFormat = 2,
 	VersionCheck = true,
 	DBMRequest = false,
@@ -304,10 +308,10 @@ local accountSettings = {
 	TexStyle = 3,
 	KeystoneInfo = {},
 	AutoBubbles = false,
-	SystemInfoType = 1,
 	DisableInfobars = false,
 	ClassColorChat = true,
 	ContactList = {},
+	CustomJunkList = {},
 }
 
 -- Initial settings
@@ -471,6 +475,17 @@ local function refreshRaidFrameIcons()
 	M:GetModule("UnitFrames"):RefreshRaidFrameIcons()
 end
 
+local function updateSimpleModeGroupBy()
+	local UF = M:GetModule("UnitFrames")
+	if UF.UpdateSimpleModeHeader then
+		UF:UpdateSimpleModeHeader()
+	end
+end
+
+local function updateRaidHealthMethod()
+	M:GetModule("UnitFrames"):UpdateRaidHealthMethod()
+end
+
 local function updateSmoothingAmount()
 	M:SetSmoothingAmount(MaoRUIPerDB["UFs"]["SmoothAmount"])
 end
@@ -565,8 +580,8 @@ local optionList = {		-- type, key, value, name, horizon, horizon2, doubleline
 		{1, "Nameplate", "ColorBorder", U["ColorBorder"].."*", true, true, nil, refreshNameplates},
 		--{1, "Nameplate", "InsideView", U["Nameplate InsideView"].."*", nil, nil, nil, updatePlateInsideView},
 		--{1, "Nameplate", "QuestIndicator", U["QuestIndicator"], true, true},
-		{1, "Nameplate", "CustomUnitColor", "|cff00cc4c"..U["CustomUnitColor"].."*", nil, nil, nil, updateCustomUnitList},
-		{1, "Nameplate", "TankMode", "|cff00cc4c"..U["Tank Mode"].."*", true},
+		{1, "Nameplate", "CustomUnitColor", "|cff00cc4c"..U["CustomUnitColor"].."*", nil, nil, nil, updateCustomUnitList, U["CustomUnitColorTip"]},
+		{1, "Nameplate", "TankMode", "|cff00cc4c"..U["Tank Mode"].."*", true, nil, nil, nil, U["TankModeTip"]},
 		{1, "Nameplate", "ShowPlayerPlate", "|cff00cc4c"..U["Enable PlayerPlate"], true, true},
 		--{3, "Nameplate", "VerticalSpacing", U["NP VerticalSpacing"].."*", false, nil, {.5, 1.5, 1}, updatePlateSpacing},
 		--{3, "Nameplate", "Distance", U["Nameplate Distance"].."*", false, false, {20, 100, 0}, updatePlateRange},
@@ -581,7 +596,9 @@ local optionList = {		-- type, key, value, name, horizon, horizon2, doubleline
 		{3, "Nameplate", "AuraSize", U["Auras Size"], true, false, {18, 40, 0}},
 		{2, "Nameplate", "ShowPowerList", U["ShowPowerList"].."*", true, true, nil, updatePowerUnitList, U["CustomUnitTips"]},
 		{5, "Nameplate", "SecureColor", U["Secure Color"].."*"},
-		{5, "Nameplate", "CustomColor", U["Custom Color"].."*", 2},
+		{5, "Nameplate", "TransColor", U["Trans Color"].."*", 1},
+		{5, "Nameplate", "InsecureColor", U["Insecure Color"].."*", 2},
+		{5, "Nameplate", "CustomColor", U["Custom Color"].."*", 3},
 		--{1, "Nameplate", "Numberstyle", "数字模式", true},
 		--{1, "Nameplate", "nameonly", "友方仅显示名字", true, true},
 		--{1, "Nameplate", "TankMode", "|cff00cc4c"..U["Tank Mode"].."*"},
@@ -602,28 +619,29 @@ local optionList = {		-- type, key, value, name, horizon, horizon2, doubleline
 		--{3, "Nameplate", "Height", U["NP Height"], true, true, {3, 16, 0}},
 	},
 	[3] = {
-		{1, "UFs", "Castbars", "|cff00cc4c"..U["UFs Castbar"], false, false, setupCastbar},
-		{1, "UFs", "PartyFrame", "|cff00cc4c"..U["UFs PartyFrame"], true, false},
-		{4, "UFs", "RaidHealthColor", U["HealthColor"], true, true, {U["Default Dark"], U["ClassColorHP"], U["GradientHP"]}},
 		--{1, "UFs", "LagString", U["Castbar LagString"], true, false},
 		{1, "UFs", "RaidFrame", "|cff00cc4c"..U["UFs RaidFrame"], false, false, setupRaidFrame},
-		{1, "UFs", "SimpleMode", "|cff00cc4c"..U["Simple RaidFrame"], true},
-		{1, "UFs", "SimpleModeSortByRole", U["SimpleMode SortByRole"], true, true},
+		{1, "UFs", "PartyFrame", "|cff00cc4c"..U["UFs PartyFrame"], true, false},
+		{1, "UFs", "Castbars", "|cff00cc4c"..U["UFs Castbar"], true, true, setupCastbar},
 		{1, "UFs", "RaidClickSets", "|cff00cc4c"..U["Enable ClickSets"], false, false, setupClickCast},
 		{1, "UFs", "PartyPetFrame", "|cff00cc4c"..U["UFs PartyPetFrame"], true, false},
 		{1, "UFs", "ShowTeamIndex", U["RaidFrame TeamIndex"], true, true},
 		{1, "UFs", "InstanceAuras", "|cff00cc4c"..U["Instance Auras"], false, false, setupRaidDebuffs},
 		{1, "UFs", "RaidBuffIndicator", "|cff00cc4c"..U["RaidBuffIndicator"], true, false, setupBuffIndicator, nil, U["RaidBuffIndicatorTip"]},
-		{1, "UFs", "AurasClickThrough", U["RaidAuras ClickThrough"], true, true},
+		{1, "UFs", "AurasClickThrough", U["RaidAuras ClickThrough"], true, true, nil, nil, U["ClickThroughTip"]},
+		{1, "UFs", "SimpleMode", "|cff00cc4c"..U["SimpleRaidFrame"], false, false, nil, nil, U["SimpleRaidFrameTip"]},
+		{1, "UFs", "HorizonParty", U["Horizon PartyFrame"], true, false},
+		{1, "UFs", "HorizonRaid", U["Horizon RaidFrame"], true, true},
 		{3, "UFs", "NumGroups", U["Num Groups"], false, false, {4, 8, 0}},
-		{1, "UFs", "HorizonParty", U["Horizon PartyFrame"], true},
-		{1, "UFs", "HorizonRaid", U["Horizon RaidFrame"], true, true},	
+		{3, "UFs", "SMUnitsPerColumn", U["SimpleMode Column"], true, false, {10, 40, 0}},
+		{4, "UFs", "SMGroupByIndex", U["SimpleMode GroupBy"].."*", true, true, {GROUP, CLASS}, updateSimpleModeGroupBy},
 		{4, "UFs", "RaidHPMode", U["RaidHPMode"].."*", false, false, {U["DisableRaidHP"], U["RaidHPPercent"], U["RaidHPCurrent"], U["RaidHPLost"]}, updateRaidNameText},
-		{4, "UFs", "HealthColor", U["HealthColor"], true, false, {U["Default Dark"], U["ClassColorHP"], U["GradientHP"]}},
+		--{4, "UFs", "HealthColor", U["HealthColor"], true, false, {U["Default Dark"], U["ClassColorHP"], U["GradientHP"]}},
+		{4, "UFs", "RaidHealthColor", U["HealthColor"], true, false, {U["Default Dark"], U["ClassColorHP"], U["GradientHP"]}},
 		{4, "UFs", "BuffIndicatorType", U["BuffIndicatorType"].."*", true, true, {U["BI_Blocks"], U["BI_Icons"], U["BI_Numbers"]}, refreshRaidFrameIcons},
-		{3, "UFs", "BuffIndicatorScale", U["BuffIndicatorScale"].."*", false, false, {1, 2, 1}, refreshRaidFrameIcons},
+		{3, "UFs", "RaidTextScale", U["UFTextScale"], false, false, {.8, 1.5, 2}, updateRaidTextScale},
 		{3, "UFs", "RaidDebuffScale", U["RaidDebuffScale"].."*", true, false, {1, 2, 1}, refreshRaidFrameIcons},
-		{3, "UFs", "RaidTextScale", U["UFTextScale"], true, true, {.8, 1.5, 2}, updateRaidTextScale},
+		{3, "UFs", "BuffIndicatorScale", U["BuffIndicatorScale"].."*", true, true, {1, 2, 1}, refreshRaidFrameIcons},
 		--{3, "UFs", "UFTextScale", U["UFTextScale"], true, {.8, 2, 2}, updateUFTextScale},
 	},
 	[4] = {
@@ -847,7 +865,6 @@ local function CreateOption(i)
 		-- Slider
 		elseif optType == 3 then
 			local min, max, step = unpack(data)
-			local decimal = step > 2 and 2 or step
 			local x, y
 			if horizon2 then
 				x, y = 460, -offset + 32
@@ -857,15 +874,16 @@ local function CreateOption(i)
 				x, y = 10, -offset - 26
 				offset = offset + 58
 			end
-			local s = M.CreateSlider(parent, name, min, max, x, y)
+			local s = M.CreateSlider(parent, name, min, max, step, x, y)
+			s.__default = (key == "ACCOUNT" and accountSettings[value]) or defaultSettings[key][value]
 			s:SetValue(NDUI_VARIABLE(key, value))
 			s:SetScript("OnValueChanged", function(_, v)
-				local current = tonumber(format("%."..step.."f", v))
+				local current = M:Round(tonumber(v), 2)
 				NDUI_VARIABLE(key, value, current)
-				s.value:SetText(format("%."..decimal.."f", current))
+				s.value:SetText(current)
 				if callback then callback() end
 			end)
-			s.value:SetText(format("%."..decimal.."f", NDUI_VARIABLE(key, value)))
+			s.value:SetText(M:Round(NDUI_VARIABLE(key, value), 2))
 			if tooltip then
 				s.title = U["Tips"]
 				M.AddTooltip(s, "ANCHOR_RIGHT", tooltip, "info")
@@ -917,9 +935,11 @@ local function CreateOption(i)
 			end
 		-- Blank, no optType
 		else
+			if not key then
 			local l = CreateFrame("Frame", nil, parent)
 			l:SetPoint("TOPLEFT", 25, -offset - 12)
 			M.CreateGF(l, 550, R.mult, "Horizontal", 1, 1, 1, .25, .25)
+			end
 			offset = offset + 32
 		end
 	end
@@ -1042,7 +1062,7 @@ local function importData()
 			MaoRUIPerDB[key][value] = toBoolean(arg1)
 		elseif arg1 == "EMPTYTABLE" then
 			MaoRUIPerDB[key][value] = {}
-		elseif arg1 == "r" or arg1 == "g" or arg1 == "b" then
+		elseif strfind(value, "Color") and (arg1 == "r" or arg1 == "g" or arg1 == "b") then
 			local color = select(4, strsplit(":", option))
 			if MaoRUIPerDB[key][value] then
 				MaoRUIPerDB[key][value][arg1] = tonumber(color)
@@ -1281,6 +1301,23 @@ local function OpenGUI()
 		dataFrame.text:SetText(OKAY)
 		exportData()
 	end)
+
+	--[[local optTip = CreateFrame("Button", nil, f)
+	optTip:SetPoint("TOPLEFT", 20, -5)
+	optTip:SetSize(45, 45)
+	optTip.Icon = optTip:CreateTexture(nil, "ARTWORK")
+	optTip.Icon:SetAllPoints()
+	optTip.Icon:SetTexture(616343)
+	optTip:SetHighlightTexture(616343)
+	optTip:SetScript("OnEnter", function()
+		GameTooltip:ClearLines()
+		GameTooltip:SetOwner(f, "ANCHOR_NONE")
+		GameTooltip:SetPoint("TOPRIGHT", f, "TOPLEFT", -5, -3)
+		GameTooltip:AddLine(U["Tips"])
+		GameTooltip:AddLine(U["Option* Tips"], .6,.8,1, 1)
+		GameTooltip:Show()
+	end)
+	optTip:SetScript("OnLeave", M.HideTooltip)]]
 
 	local credit = CreateFrame("Button", nil, f)
 	credit:SetPoint("BOTTOM", 0, 66)

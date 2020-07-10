@@ -3,14 +3,13 @@ local M, R, U, I = unpack(ns)
 local UF = M:GetModule("UnitFrames")
 
 local _G = getfenv(0)
-local strmatch, tonumber, pairs, type, unpack, next, rad = string.match, tonumber, pairs, type, unpack, next, math.rad
+local strmatch, tonumber, pairs, unpack, rad = string.match, tonumber, pairs, unpack, math.rad
 local UnitThreatSituation, UnitIsTapDenied, UnitPlayerControlled, UnitIsUnit = UnitThreatSituation, UnitIsTapDenied, UnitPlayerControlled, UnitIsUnit
 local UnitReaction, UnitIsConnected, UnitIsPlayer, UnitSelectionColor = UnitReaction, UnitIsConnected, UnitIsPlayer, UnitSelectionColor
-local GetInstanceInfo, UnitClassification, UnitExists, InCombatLockdown = GetInstanceInfo, UnitClassification, UnitExists, InCombatLockdown
-local C_NamePlate_GetNamePlates = C_NamePlate.GetNamePlates
+local UnitClassification, UnitExists, InCombatLockdown = UnitClassification, UnitExists, InCombatLockdown
 local UnitGUID, GetPlayerInfoByGUID, Ambiguate, UnitName = UnitGUID, GetPlayerInfoByGUID, Ambiguate, UnitName
 local SetCVar, UIFrameFadeIn, UIFrameFadeOut = SetCVar, UIFrameFadeIn, UIFrameFadeOut
-local UNKNOWN, INTERRUPTED = UNKNOWN, INTERRUPTED
+local INTERRUPTED = INTERRUPTED
 
 -- Init
 function UF:UpdatePlateScale()
@@ -87,16 +86,21 @@ function UF:UpdateUnitPower()
 end
 
 -- Update unit color
-function UF.UpdateColor(element, unit)
-	local self = element.__owner
+function UF.UpdateColor(self, _, unit)
+	if not unit or self.unit ~= unit then return end
+
+	local element = self.Health
 	local name = self.unitName
 	local npcID = self.npcID
 	local isCustomUnit = customUnits[name] or customUnits[npcID]
 	local isPlayer = UnitIsPlayer(unit)
+	local status = UnitThreatSituation("player", unit) or false -- just in case
 	local isTargeting = UnitIsUnit(unit.."target", "player")
 	local reaction = UnitReaction(unit, "player")
 	local customColor = MaoRUIPerDB["Nameplate"]["CustomColor"]
 	local secureColor = MaoRUIPerDB["Nameplate"]["SecureColor"]
+	local transColor = MaoRUIPerDB["Nameplate"]["TransColor"]
+	local insecureColor = MaoRUIPerDB["Nameplate"]["InsecureColor"]
 	local r, g, b
 
 	if not UnitIsConnected(unit) then
@@ -116,8 +120,14 @@ function UF.UpdateColor(element, unit)
 			r, g, b = .6, .6, .6
 		else
 			r, g, b = UnitSelectionColor(unit, true)
-			if MaoRUIPerDB["Nameplate"]["TankMode"] and isTargeting then
-				r, g, b = secureColor.r, secureColor.g, secureColor.b
+			if status and MaoRUIPerDB["Nameplate"]["TankMode"] then
+				if status == 3 then
+					r, g, b = secureColor.r, secureColor.g, secureColor.b
+				elseif status == 2 or status == 1 then
+					r, g, b = transColor.r, transColor.g, transColor.b
+				elseif status == 0 then
+					r, g, b = insecureColor.r, insecureColor.g, insecureColor.b
+				end
 			end
 		end
 	end
@@ -126,9 +136,16 @@ function UF.UpdateColor(element, unit)
 		element:SetStatusBarColor(r, g, b)
 	end
 
-	if (not MaoRUIPerDB["Nameplate"]["TankMode"] or isCustomUnit or isPlayer) and UnitCanAttack(unit, "player") and isTargeting then
-		self.ThreatIndicator:SetBackdropBorderColor(1, 0, 0)
-		self.ThreatIndicator:Show()
+	if isCustomUnit or not MaoRUIPerDB["Nameplate"]["TankMode"] then
+		if status and status == 3 then
+			self.ThreatIndicator:SetBackdropBorderColor(1, 0, 0)
+			self.ThreatIndicator:Show()
+		elseif status and (status == 2 or status == 1) then
+			self.ThreatIndicator:SetBackdropBorderColor(1, 1, 0)
+			self.ThreatIndicator:Show()
+		else
+			self.ThreatIndicator:Hide()
+		end
 	else
 		self.ThreatIndicator:Hide()
 	end
@@ -137,7 +154,7 @@ end
 function UF:UpdateThreatColor(_, unit)
 	if unit ~= self.unit then return end
 
-	UF.UpdateColor(self.Health, unit)
+	UF.UpdateColor(self, _, unit)
 end
 
 function UF:CreateThreatColor(self)
@@ -553,6 +570,7 @@ function UF:CreatePlates()
 	health:SetStatusBarTexture(I.normTex)
 	health.backdrop = M.CreateBDFrame(health, nil, true) -- don't mess up with libs
 	M:SmoothBar(health)
+
 	self.Health = health
 	self.Health.frequentUpdates = true
 	self.Health.UpdateColor = UF.UpdateColor
@@ -708,7 +726,6 @@ function UF:CreatePlayerPlate()
 	UF:CreateHealthBar(self)
 	UF:CreatePowerBar(self)
 	UF:CreateClassPower(self)
-	UF:StaggerBar(self)
 	if MaoRUIPerDB["Auras"]["ClassAuras"] and not I.isClassic then auras:CreateLumos(self) end
 	if not MaoRUIPerDB["Nameplate"]["ClassPowerOnly"] then UF:CreateEneryTicker(self) end
 

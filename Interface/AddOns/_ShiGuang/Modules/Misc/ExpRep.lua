@@ -5,13 +5,10 @@ local MISC = M:GetModule("Misc")
 --[[
 	一个工具条用来替代系统的经验条、声望条、神器经验等等
 ]]
-local format, pairs = string.format, pairs
-local min, mod, floor = math.min, mod, math.floor
+local pairs = pairs
+local min, floor = math.min, math.floor
 local MAX_PLAYER_LEVEL = MAX_PLAYER_LEVEL
-local MAX_REPUTATION_REACTION = MAX_REPUTATION_REACTION
 local FACTION_BAR_COLORS = FACTION_BAR_COLORS
-local NUM_FACTIONS_DISPLAYED = NUM_FACTIONS_DISPLAYED
-local REPUTATION_PROGRESS_FORMAT = REPUTATION_PROGRESS_FORMAT
 
 function MISC:ExpBar_Update()
 	local rest = self.restBar
@@ -29,7 +26,7 @@ function MISC:ExpBar_Update()
 			rest:Show()
 		end
 	elseif GetWatchedFactionInfo() then
-		local _, standing, barMin, barMax, value, factionID = GetWatchedFactionInfo()
+		local _, standing, barMin, barMax, value = GetWatchedFactionInfo()
 		--if standing == MAX_REPUTATION_REACTION then barMin, barMax, value = 0, 1, 1 end
 		self:SetStatusBarColor(FACTION_BAR_COLORS[standing].r, FACTION_BAR_COLORS[standing].g, FACTION_BAR_COLORS[standing].b, .85)
 		self:SetMinMaxValues(barMin, barMax)
@@ -37,6 +34,13 @@ function MISC:ExpBar_Update()
 		self:Show()
 	else
 		self:Hide()
+	end
+	if UnitLevel("player") < MAX_PLAYER_LEVEL then
+		local function showIfResting() if (IsResting("player") or FALSE) then return "+" end return "" end
+  	local function showRestAmount() if (GetXPExhaustion("player") or FALSE) then return math.ceil(100*(GetXPExhaustion("player")/UnitXPMax("player"))) end return "0" end
+		self.ArtifactText:SetText(UnitLevel("player").."  "..math.floor(100*(UnitXP("player")/UnitXPMax("player"))) .. "%".."  |c00FF68CC"..showRestAmount().."%"..showIfResting().."|r")
+	else
+		self.ArtifactText:SetText("")
 	end
 end
 
@@ -64,7 +68,7 @@ function MISC:ExpBar_UpdateTooltip()
 	end
 
 	if GetWatchedFactionInfo() then
-		local name, standing, barMin, barMax, value, factionID = GetWatchedFactionInfo()
+		local name, standing, barMin, barMax, value = GetWatchedFactionInfo()
 		--[[if standing == MAX_REPUTATION_REACTION then
 			barMax = barMin + 1e3
 			value = barMax - 1
@@ -113,11 +117,17 @@ end
 function MISC:Expbar()
 	if not MaoRUIPerDB["Misc"]["ExpRep"] then return end
 
-	local bar = CreateFrame("StatusBar", nil, Minimap)
-	bar:SetPoint("TOP", Minimap, "BOTTOM", 0, 0)
-	bar:SetSize(Minimap:GetWidth()-2, 3)
+	local bar = CreateFrame("StatusBar", nil, MinimapCluster)
+	bar:SetPoint("TOPLEFT", Minimap, "BOTTOMLEFT", 0, 0)
+	bar:SetPoint("TOPRIGHT", Minimap, "BOTTOMRIGHT", 0, 0)
+	bar:SetHeight(3)
 	bar:SetHitRectInsets(0, 0, 0, -10)
+	bar:SetFrameLevel(bar:GetFrameLevel() + 8)
 	M.CreateSB(bar)
+	
+    bar.ArtifactText=bar:CreateFontString("ShowArtifactText", "OVERLAY")
+    bar.ArtifactText:SetFont("Interface\\AddOns\\_ShiGuang\\Media\\Fonts\\Infinity.ttf", 11, "OUTLINE")  --STANDARD_TEXT_FONT
+    bar.ArtifactText:SetPoint("BOTTOMRIGHT", bar,"BOTTOMRIGHT",2, 2)  
 
 	local rest = CreateFrame("StatusBar", nil, bar)
 	rest:SetAllPoints()
@@ -126,5 +136,6 @@ function MISC:Expbar()
 	rest:SetFrameLevel(bar:GetFrameLevel() - 1)
 	bar.restBar = rest
 
-	self:SetupScript(bar)
+	MISC:SetupScript(bar)
 end
+MISC:RegisterMisc("ExpRep", MISC.Expbar)

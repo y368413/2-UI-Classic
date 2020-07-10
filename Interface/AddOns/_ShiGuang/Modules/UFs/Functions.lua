@@ -4,7 +4,7 @@ local M, R, U, I = unpack(ns)
 local oUF = ns.oUF or oUF
 local UF = M:RegisterModule("UnitFrames")
 
-local format, floor, abs, min = string.format, math.floor, math.abs, math.min
+local format, floor = string.format, math.floor
 local pairs, next = pairs, next
 
 -- Custom colors
@@ -108,12 +108,22 @@ function UF:CreateHealthBar(self)
 	self.Health.bg = bg
 end
 
+function UF:UpdateRaidHealthMethod()
+	for _, frame in pairs(oUF.objects) do
+		if frame.mystyle == "raid" then
+			frame:SetHealthUpdateMethod(MaoRUIPerDB["UFs"]["FrequentHealth"])
+			frame:SetHealthUpdateSpeed(MaoRUIPerDB["UFs"]["HealthFrequency"])
+			frame.Health:ForceUpdate()
+		end
+	end
+end
+
 function UF:CreateHealthText(self)
 	local mystyle = self.mystyle
 	local textFrame = CreateFrame("Frame", nil, self)
 	textFrame:SetAllPoints(self.Health)
 
-	local name = M.CreateFS(textFrame, retVal(self, 13, 12, 12, 12, MaoRUIPerDB["Nameplate"]["NameTextSize"]), "", false, "LEFT", 3, -1)
+	local name = M.CreateFS(textFrame, retVal(self, 13, 12, 12, 12, MaoRUIPerDB["Nameplate"]["NameTextSize"]), "", false, "LEFT", 3, 0)
 	name:SetJustifyH("LEFT")
 	if mystyle == "raid" then
 		name:SetWidth(self:GetWidth()*.95)
@@ -142,21 +152,19 @@ function UF:CreateHealthText(self)
 		name:SetWidth(self:GetWidth()*.55)
 	end
 
-	if mystyle == "player" then
-		self:Tag(name, " [color][name]")
-	elseif mystyle == "target" then
-		self:Tag(name, "[fulllevel] [color][name][afkdnd]")
-	elseif mystyle == "focus" then
+	if mystyle == "focus" then
 		self:Tag(name, "[color][name][afkdnd]")
 	elseif mystyle == "nameplate" then
 		self:Tag(name, "[nplevel][name]")
 	elseif mystyle == "arena" then
 		self:Tag(name, "[arenaspec] [color][name]")
+	elseif mystyle == "raid" and MaoRUIPerDB["UFs"]["SimpleMode"] and MaoRUIPerDB["UFs"]["ShowTeamIndex"] and not self.isPartyPet and not self.isPartyFrame then
+		self:Tag(name, "[group].[nplevel][color][name]")
 	else
 		self:Tag(name, "[nplevel][color][name]")
 	end
 
-	local hpval = M.CreateFS(textFrame, retVal(self, 14, 13, 13, MaoRUIPerDB["Nameplate"]["HealthTextSize"]), "", false, "RIGHT", -3, -1)
+	local hpval = M.CreateFS(textFrame, retVal(self, 14, 13, 13, 13, MaoRUIPerDB["Nameplate"]["HealthTextSize"]), "", false, "RIGHT", -3, 0)
 	if mystyle == "raid" then
 		self:Tag(hpval, "[raidhp]")
 		if self.isPartyPet then
@@ -278,7 +286,6 @@ local textScaleFrames = {
 	["player"] = true,
 	["target"] = true,
 	["pet"] = true,
-	["tot"] = true,
 }
 function UF:UpdateTextScale()
 	local scale = MaoRUIPerDB["UFs"]["UFTextScale"]
@@ -317,41 +324,8 @@ function UF:CreatePortrait(self)
 	self.Health.bg:SetParent(self)
 end
 
-local roleTexCoord = {
-	["TANK"] = {.5, .75, 0, 1},
-	["HEALER"] = {.75, 1, 0, 1},
-	["DAMAGER"] = {.25, .5, 0, 1},
-}
-local function postUpdateRole(element, role)
-	if element:IsShown() then
-		element:SetTexCoord(unpack(roleTexCoord[role]))
-	end
-end
-
 function UF:CreateIcons(self)
 	local mystyle = self.mystyle
-	if mystyle == "player" then
-		local combat = self:CreateTexture(nil, "OVERLAY")
-		combat:SetPoint("CENTER", self, "BOTTOMLEFT")
-		combat:SetSize(20, 20)
-		combat:SetTexture("Interface\\WORLDSTATEFRAME\\CombatSwords")
-		combat:SetTexCoord(0, .5, 0, .5)
-		combat:SetVertexColor(.8, 0, 0)
-		self.CombatIndicator = combat
-
-		local rest = self:CreateTexture(nil, "OVERLAY")
-		rest:SetPoint("CENTER", self, "LEFT", -2, 4)
-		rest:SetSize(18, 18)
-		rest:SetTexture("Interface\\PLAYERFRAME\\DruidEclipse")
-		rest:SetTexCoord(.445, .55, .648, .905)
-		rest:SetVertexColor(.6, .8, 1)
-		self.RestingIndicator = rest
-	elseif mystyle == "target" then
-		local quest = self:CreateTexture(nil, "OVERLAY")
-		quest:SetPoint("TOPLEFT", self, "TOPLEFT", 0, 8)
-		quest:SetSize(16, 16)
-		self.QuestIndicator = quest
-	end
 
 	local phase = self:CreateTexture(nil, "OVERLAY")
 	phase:SetPoint("TOP", self, 0, 12)
@@ -649,17 +623,7 @@ function UF:CreateAuras(self)
 	bu.initialAnchor = "TOPLEFT"
 	bu["growth-y"] = "DOWN"
 	bu.spacing = 3
-	if mystyle == "target" then
-		bu:SetPoint("TOPLEFT", self.Power, "BOTTOMLEFT", 0, -10)
-		bu.numBuffs = 20
-		bu.numDebuffs = 15
-		bu.iconsPerRow = 9
-	elseif mystyle == "tot" then
-		bu:SetPoint("TOPLEFT", self.Power, "BOTTOMLEFT", 0, -5)
-		bu.numBuffs = 0
-		bu.numDebuffs = 10
-		bu.iconsPerRow = 5
-	elseif mystyle == "raid" then
+	if mystyle == "raid" then
 		if MaoRUIPerDB["UFs"]["RaidBuffIndicator"] then
 			bu.initialAnchor = "LEFT"
 			bu:SetPoint("LEFT", self, 15, 0)
@@ -737,12 +701,6 @@ function UF:CreateDebuffs(self)
 	bu.initialAnchor = "TOPRIGHT"
 	bu["growth-x"] = "LEFT"
 	bu["growth-y"] = "DOWN"
-	if mystyle == "player" then
-		bu:SetPoint("TOPRIGHT", self.Power, "BOTTOMRIGHT", 0, -10)
-		bu.num = 14
-		bu.iconsPerRow = 7
-		bu.showDebuffType = true
-	end
 
 	local width = self:GetWidth()
 	bu.size = auraIconSize(width, bu.iconsPerRow, bu.spacing)
@@ -759,7 +717,7 @@ end
 local margin = R.UFs.BarMargin
 local barWidth, barHeight = unpack(R.UFs.BarSize)
 
-function UF.PostUpdateClassPower(element, cur, max, diff, powerType)
+function UF.PostUpdateClassPower(element, cur, max, diff)
 	if not cur or cur == 0 then
 		for i = 1, 6 do
 			element[i].bg:Hide()
@@ -849,38 +807,8 @@ function UF:CreateClassPower(self)
 		end
 	end
 
-	if I.MyClass == "DEATHKNIGHT" then
-		bars.colorSpec = true
-		bars.sortOrder = "asc"
-		bars.PostUpdate = UF.PostUpdateRunes
-		self.Runes = bars
-	else
-		bars.PostUpdate = UF.PostUpdateClassPower
-		self.ClassPower = bars
-	end
-end
-
-function UF:StaggerBar(self)
-	if I.MyClass ~= "MONK" then return end
-
-	local stagger = CreateFrame("StatusBar", nil, self.Health)
-	stagger:SetSize(barWidth, barHeight)
-	stagger:SetPoint(unpack(R.UFs.BarPoint))
-	stagger:SetStatusBarTexture(I.normTex)
-	stagger:SetFrameLevel(self:GetFrameLevel() + 5)
-	M.CreateBDFrame(stagger, 0, true)
-
-	local bg = stagger:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetTexture(I.normTex)
-	bg.multiplier = .25
-
-	local text = M.CreateFS(stagger, 13)
-	text:SetPoint("CENTER", stagger, "TOP")
-	self:Tag(text, "[monkstagger]")
-
-	self.Stagger = stagger
-	self.Stagger.bg = bg
+	bars.PostUpdate = UF.PostUpdateClassPower
+	self.ClassPower = bars
 end
 
 function UF.PostUpdateAltPower(element, _, cur, _, max)
